@@ -90,6 +90,12 @@ class JSONEventStore(IEventStore):
 
     def __init__(self) -> None:
         self.current : dict[str, list[EventDescriptorDict]] = {}
+        
+        
+    async def load_from_file(self, filename : str = "./db/eventstore.json") -> None:
+        if os.path.exists(filename):
+            with open(filename, "r", encoding="utf-8") as f:
+                self.current.update(json.load(f))
 
     async def save_events(self, aggregate_id: str, events: list[IEvent], expected_version: int) -> None:
         event_descriptors = self.current.get(aggregate_id)
@@ -108,16 +114,20 @@ class JSONEventStore(IEventStore):
             i += 1
             event_descriptors.append(EventDescriptorDict(id=aggregate_id, event_type=event.type,event_data=event.to_dict(), version=i))
             
-        with open(f"{aggregate_id}.json", "w", encoding="utf-8") as f:
+        with open(f"./db/{aggregate_id}.json", "w", encoding="utf-8") as f:
             json.dump(self.current, f, ensure_ascii=False)
             
     async def get_events_for_aggregate(self, aggregate_id: str) -> list[IEvent]:
         event_descriptors = self.current.get(aggregate_id)
         if event_descriptors is None:
-            if os.path.exists(f"{aggregate_id}.json"):
-                with open(f"{aggregate_id}.json", "r", encoding="utf-8") as f:
+            if os.path.exists(f"./db/{aggregate_id}.json"):
+                with open(f"./db/{aggregate_id}.json", "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.current[aggregate_id] = data
             else:
                 return []
         return [get_event_class(desc["event_type"]).from_dict(desc["event_data"]) for desc in event_descriptors]
+    
+    async def save(self, filename : str = "./db/eventstore.json") -> None:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(self.current, f, ensure_ascii=False)
