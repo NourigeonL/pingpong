@@ -30,6 +30,7 @@ class ParticipantRegistered(IEvent):
     
 @dataclass
 class MatchFinished(IEvent):
+    match_id : str
     match_result : MatchResult
     
     @property
@@ -48,6 +49,7 @@ class Tournament(AggregateRoot):
             self._apply_change(TournamentCreated(id, name, competition_date.isoformat()))
         self.participants : list[Participant] = []
         self.match_history : list[MatchResult] = []
+        self.match_history_id : list[str] = []
         
     def register_participant(self, participant : Participant) -> None:
         if participant.id not in [p.id for p in self.participants]:
@@ -58,7 +60,9 @@ class Tournament(AggregateRoot):
             self.register_participant(participant)
             
     def register_match_result(self, match_result : MatchResult) -> None:
-        self._apply_change(MatchFinished(match_result))
+        match_id = f"{match_result.stage}-{match_result.player_a}-{match_result.player_b}"
+        if match_id not in self.match_history_id:
+            self._apply_change(MatchFinished(match_id, match_result))
         
     @dispatch(TournamentCreated)
     def _apply(self, e: TournamentCreated) -> None:
@@ -73,6 +77,7 @@ class Tournament(AggregateRoot):
     @dispatch(MatchFinished)
     def _apply(self, e: MatchFinished) -> None:
         self.match_history.append(e.match_result)
+        self.match_history_id.append(e.match_id)
         
     @property
     def id(self) -> str:
